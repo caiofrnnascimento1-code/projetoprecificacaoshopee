@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precificador Shopee — baseado na Precificação Março/26</title>
+<style>
+  :root{
+    --laranja:#EE4D2D; --laranja-escuro:#d63b1f;
+    --verde:#0a8f4e; --azul:#1565c0; --roxo:#6a1b9a; --vermelho:#c62828;
+    --cinza-fundo:#f5f5f5; --cinza-borda:#e0e0e0; --texto:#333;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI', system-ui, -apple-system, sans-serif; background:var(--cinza-fundo); color:var(--texto); font-size:14px;}
+  header{background:linear-gradient(135deg,var(--laranja),#ff7350); color:#fff; padding:18px 24px;}
+  header h1{font-size:1.5rem; font-weight:700;}
+  header p{opacity:.92; font-size:.85rem; margin-top:2px;}
+  .tabs{display:flex; gap:6px; padding:10px 24px 0; background:#fff; border-bottom:2px solid var(--cinza-borda); position:sticky; top:0; z-index:50;}
+  .tabs button{border:1px solid var(--cinza-borda); border-bottom:none; background:#fafafa; padding:10px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:.9rem; font-weight:600; color:#777;}
+  .tabs button.ativa{background:#fff; color:var(--laranja); border-color:var(--laranja); border-bottom:2px solid #fff; margin-bottom:-2px;}
+  main{padding:18px 24px 60px; max-width:100%;}
+  .painel{background:#fff; border:1px solid var(--cinza-borda); border-radius:10px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .painel h2{font-size:1rem; color:var(--laranja-escuro); margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+  .painel h2 .badge{font-size:.68rem; background:#e8f5e9; color:var(--verde); padding:2px 8px; border-radius:10px; font-weight:600;}
+  .grid-config{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px;}
+  .campo label{display:block; font-size:.72rem; font-weight:600; color:#666; margin-bottom:3px; text-transform:uppercase; letter-spacing:.3px;}
+  .campo input,.campo select{width:100%; padding:7px 9px; border:1px solid var(--cinza-borda); border-radius:6px; font-size:.9rem; background:#fff;}
+  .campo input:focus,.campo select:focus{outline:2px solid #ffcdc2; border-color:var(--laranja);}
+  .campo small{display:block; color:#999; font-size:.68rem; margin-top:2px;}
+  .toolbar{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;}
+  .btn{border:none; border-radius:6px; padding:9px 16px; font-size:.85rem; font-weight:600; cursor:pointer; background:var(--laranja); color:#fff;}
+  .btn:hover{background:var(--laranja-escuro);}
+  .btn.secundario{background:#fff; color:var(--laranja-escuro); border:1px solid var(--laranja);}
+  .btn.cinza{background:#eee; color:#555; border:1px solid var(--cinza-borda);}
+  .btn.cinza:hover{background:#e0e0e0;}
+  .btn.perigo{background:#fff; color:var(--vermelho); border:1px solid var(--vermelho);}
+  .tabela-wrap{overflow:auto; border:1px solid var(--cinza-borda); border-radius:8px; background:#fff; max-height:75vh;}
+  table{border-collapse:separate; border-spacing:0; font-size:.8rem; white-space:nowrap;}
+  thead th{position:sticky; z-index:20; background:#fafafa; border-bottom:2px solid var(--cinza-borda); padding:6px 6px; font-size:.68rem; text-transform:uppercase; color:#555; text-align:center;}
+  thead tr.grupo th{top:0; padding:8px; font-size:.75rem; z-index:21;}
+  thead tr.colunas th{top:31px;}
+  tbody td{border-bottom:1px solid #f0f0f0; padding:3px 5px; text-align:right;}
+  tbody td input{width:100%; min-width:78px; padding:5px 6px; border:1px solid transparent; border-radius:5px; text-align:right; font-size:.82rem; background:#fff;}
+  tbody td input:hover{border-color:#ddd;}
+  tbody td input:focus{outline:2px solid #ffcdc2; border-color:var(--laranja); background:#fff8f6;}
+  td.txt input{text-align:left; min-width:150px;}
+  td.id input{min-width:80px; text-align:left;}
+  td.calc{background:#fafafa; color:#333; padding:5px 8px; min-width:84px;}
+  td.grupo-fixos{background:#f0f0f0;}
+  .g-normal thead th{background:#e8f5e9; color:var(--verde);}
+  .g-promo  thead th{background:#fff3e0; color:#e65100;}
+  .g-banner thead th{background:#e3f2fd; color:var(--azul);}
+  .g-flash  thead th{background:#f3e5f5; color:var(--roxo);}
+  td.lucro-pos{color:var(--verde); font-weight:700;}
+  td.lucro-neg{color:var(--vermelho); font-weight:700;}
+  td input.preco{font-weight:700; color:var(--laranja-escuro);}
+  .excluir{background:none; border:none; color:#ccc; font-size:1rem; cursor:pointer; padding:2px 6px;}
+  .excluir:hover{color:var(--vermelho);}
+  .detalhes{margin-top:8px;}
+  .detalhes summary{cursor:pointer; font-size:.82rem; color:#666; font-weight:600;}
+  .detalhes .tabela-taxas{margin-top:8px;}
+  .tabela-taxas table{white-space:normal;}
+  .tabela-taxas th,.tabela-taxas td{border:1px solid var(--cinza-borda); padding:6px 10px; font-size:.78rem;}
+  .tabela-taxas td input{width:80px; padding:4px 6px; border:1px solid var(--cinza-borda); border-radius:4px; text-align:right;}
+  .tabela-taxas th{background:#fafafa;}
+  .nota{background:#fff8e1; border:1px solid #ffe082; color:#795548; border-radius:8px; padding:10px 14px; font-size:.8rem; margin-top:10px; line-height:1.5;}
+  .aviso-ok{background:#e8f5e9; border:1px solid #a5d6a7; color:#1b5e20; border-radius:8px; padding:8px 14px; font-size:.8rem; margin-top:10px; display:inline-block;}
+  /* Simulador */
+  .sim-grid{display:grid; grid-template-columns:minmax(260px,340px) 1fr; gap:16px; align-items:start;}
+  @media (max-width:900px){.sim-grid{grid-template-columns:1fr;}}
+  .resultado{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:14px 0;}
+  .card-res{background:#fafafa; border:1px solid var(--cinza-borda); border-radius:8px; padding:10px 12px;}
+  .card-res .rotulo{font-size:.68rem; text-transform:uppercase; color:#888; font-weight:600;}
+  .card-res .valor{font-size:1.05rem; font-weight:700; margin-top:3px;}
+  .card-res.destaque{background:#fff3ee; border-color:var(--laranja);}
+  .card-res.destaque .valor{color:var(--laranja-escuro); font-size:1.3rem;}
+  .card-res .valor.verde{color:var(--verde);}
+  .card-res .valor.vermelho{color:var(--vermelho);}
+  table.faixas{border-collapse:collapse; width:100%; white-space:normal;}
+  table.faixas th, table.faixas td{border:1px solid var(--cinza-borda); padding:7px 10px; font-size:.78rem; text-align:right;}
+  table.faixas th{background:#fafafa; text-align:center;}
+  table.faixas td:first-child, table.faixas th:first-child{text-align:left;}
+  tr.valida td{background:#e8f5e9;}
+  tr.melhor td{background:#c8e6c9; font-weight:700;}
+  .oculto{display:none!important;}
+  .vazio-msg{padding:30px; text-align:center; color:#999;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 Precificador Shopee</h1>
+  <p>Baseado na sua planilha “Precificacao_Marco_26.xlsx” — mesmas fórmulas de Taxa Shopee, Imposto, NF de Entrada, Antecipação, Lucro, ROAS Mínimo e Investimento em ADS.</p>
+</header>
+
+<nav class="tabs">
+  <button id="tabbtn-prec" class="ativa" onclick="trocarAba('prec')">📋 Precificação</button>
+  <button id="tabbtn-sim" onclick="trocarAba('sim')">🎯 Calcular Preço Ideal</button>
+</nav>
+
+<main>
+
+<!-- ============ ABA PRECIFICAÇÃO ============ -->
+<section id="aba-prec">
+
+  <div class="painel">
+    <h2>⚙️ Configurações (Painel Central)</h2>
+    <div class="grid-config">
+      <div class="campo">
+        <label>Modalidade (Tipo de Vendedor)</label>
+        <select id="cfg-modalidade" onchange="salvar(); renderCorpo();">
+          <option value="CNPJ">CNPJ</option>
+          <option value="CPF">CPF</option>
+        </select>
+        <small>CPF adiciona R$ 3,00 por item</small>
+      </div>
+      <div class="campo">
+        <label>% Campanha (Shopee)</label>
+        <input type="text" id="cfg-campanha" value="0" oninput="salvar(); renderCorpo();">
+        <small>% adicional cobrado sobre o preço</small>
+      </div>
+      <div class="campo">
+        <label>% de Antecipação</label>
+        <input type="text" id="cfg-antecip" value="0" oninput="salvar(); renderCorpo();">
+        <small>Shopee Antecipa — % do valor antecipado</small>
+      </div>
+      <div class="campo">
+        <label>Taxa de Antecipação %</label>
+        <input type="text" id="cfg-taxaantecip" value="0" oninput="salvar(); renderCorpo();">
+        <small>Taxa cobrada pela antecipação</small>
+      </div>
+      <div class="campo">
+        <label>Imposto (% sobre o preço)</label>
+        <input type="text" id="cfg-imposto" value="0" oninput="salvar(); renderCorpo();">
+        <small>Nota Fiscal de Saída</small>
+      </div>
+      <div class="campo">
+        <label>NF de Entrada (% sobre o preço)</label>
+        <input type="text" id="cfg-nf" value="0" oninput="salvar(); renderCorpo();">
+        <small>% pago na emissão da NF de entrada</small>
+      </div>
+    </div>
+
+    <details class="detalhes">
+      <summary>Editar Tabela de Taxas da Shopee (faixas de preço)</summary>
+      <div class="tabela-taxas">
+        <table id="tab-taxas"></table>
+      </div>
+      <div class="grid-config" style="margin-top:10px;">
+        <div class="campo">
+          <label>Adicional por CPF (R$ por item)</label>
+          <input type="text" id="cfg-cpfadd" oninput="salvar(); renderCorpo();">
+        </div>
+        <div class="campo">
+          <label>Limite de comissão</label>
+          <label style="display:flex; gap:6px; align-items:center; text-transform:none; font-weight:400; font-size:.8rem;">
+            <input type="checkbox" id="cfg-cap" style="width:auto;" oninput="salvar(); renderCorpo();">
+            Limitar comissão Shopee a R$ 100,00
+          </label>
+          <small>Mencionado na planilha, mas desativado por padrão (a planilha não aplica)</small>
+        </div>
+      </div>
+      <div class="nota">ℹ️ Regra fixa: produtos até <b>R$ 8,00</b> pagam <b>% da faixa + metade do valor do produto</b> (o adicional fixo vira 50% do preço), igual à fórmula da planilha.</div>
+    </details>
+  </div>
+
+  <div class="painel">
+    <h2>📦 Produtos <span class="badge" id="badge-teste"></span></h2>
+    <div class="toolbar">
+      <button class="btn" onclick="addLinha()">➕ Adicionar Produto</button>
+      <button class="btn secundario" onclick="carregarExemplos()">🧪 Carregar exemplos da planilha</button>
+      <button class="btn cinza" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+      <button class="btn perigo" onclick="limparTudo()">🗑️ Limpar tudo</button>
+      <span style="color:#999; font-size:.75rem;">💾 Salvo automaticamente no navegador</span>
+    </div>
+
+    <div class="tabela-wrap">
+      <table id="tabela"></table>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ ABA SIMULADOR ============ -->
+<section id="aba-sim" class="oculto">
+
+  <div class="painel">
+    <h2>🎯 Descobrir o preço de venda ideal</h2>
+    <p style="color:#777; font-size:.82rem; margin-bottom:12px;">
+      Informe seus custos e o lucro desejado. O programa calcula o <b>preço mínimo de venda</b> que já desconta
+      Taxa Shopee (por faixa de preço), imposto, NF de entrada e antecipação — usando as configurações do Painel Central.
+    </p>
+    <div class="sim-grid">
+      <div>
+        <div class="grid-config" style="grid-template-columns:1fr 1fr;">
+          <div class="campo"><label>Custo Unitário (R$)</label><input type="text" id="sim-custo" oninput="calcularSim()"></div>
+          <div class="campo"><label>Insumos (R$)</label><input type="text" id="sim-insumos" value="0" oninput="calcularSim()"></div>
+          <div class="campo"><label>Outros Custos (R$)</label><input type="text" id="sim-outros" value="0" oninput="calcularSim()"></div>
+          <div class="campo">
+            <label>Objetivo</label>
+            <select id="sim-tipo" onchange="calcularSim()">
+              <option value="pct">Lucro em % do preço</option>
+              <option value="rs">Lucro em R$ por venda</option>
+            </select>
+          </div>
+          <div class="campo"><label id="sim-alvo-label">Lucro desejado (%)</label><input type="text" id="sim-alvo" oninput="calcularSim()"></div>
+          <div class="campo"><label>% Investimento ADS</label><input type="text" id="sim-ads" oninput="calcularSim()"><small>Para calcular ROAS mínimo</small></div>
+        </div>
+        <div id="sim-erro" class="nota oculto" style="background:#ffebee; border-color:#ef9a9a; color:#b71c1c;"></div>
+      </div>
+      <div>
+        <div class="resultado" id="sim-resultado"></div>
+        <div id="sim-faixas"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painel">
+    <h2>🧮 Testar um preço (cálculo direto)</h2>
+    <p style="color:#777; font-size:.82rem; margin-bottom:10px;">Use os mesmos custos acima e veja o resultado completo de um preço específico.</p>
+    <div class="grid-config" style="grid-template-columns:minmax(160px,220px) 1fr;">
+      <div class="campo"><label>Preço de Venda (R$)</label><input type="text" id="sim2-preco" oninput="calcularSim2()"></div>
+    </div>
+    <div class="resultado" id="sim2-resultado"></div>
+  </div>
+
+</section>
+
+</main>
+
+<script>
+'use strict';
+/* ================================================================
+   PRECIFICADOR SHOPEE — replica fiel das fórmulas da planilha
+   Precificacao_Marco_26.xlsx (aba "Precificação")
+   ================================================================ */
+
+const CHAVE = 'precificadorShopee_v1';
+
+const CENARIOS = [
+  {chave:'normal', nome:'Preço de Venda',    classe:'g-normal', cor:'var(--verde)'},
+  {chave:'promo',  nome:'Promoções',         classe:'g-promo',  cor:'#e65100'},
+  {chave:'banner', nome:'Ofertas de Banner', classe:'g-banner', cor:'var(--azul)'},
+  {chave:'flash',  nome:'Ofertas Relâmpago', classe:'g-flash',  cor:'var(--roxo)'},
+];
+
+const PADRAO = {
+  modalidade:'CNPJ', campanha:0, antecip:0, taxaAntecip:0, imposto:0, nf:0,
+  cpfAdd:3, cap:false,
+  taxas:[
+    {rotulo:'Até R$ 8,00',                  hi:8,     pct:20, add:0,  meiaRegra:true},
+    {rotulo:'Até R$ 79,99',                 hi:79.99, pct:20, add:4},
+    {rotulo:'De R$ 80 até R$ 99,99',        hi:99.99, pct:14, add:16},
+    {rotulo:'De R$ 100 até R$ 199,99',      hi:199.99,pct:14, add:20},
+    {rotulo:'De R$ 200 até R$ 499,99',      hi:499.99,pct:14, add:26},
+    {rotulo:'Acima de R$ 500,00',           hi:Infinity, pct:14, add:26},
+  ],
+  rows:[]
+};
+
+/* ---------- utilidades ---------- */
+function num(v){
+  if (v === null || v === undefined) return NaN;
+  let s = String(v).trim().replace(/[R$\s]/g,'');
+  if (!s) return NaN;
+  const temV = s.includes(','), temP = s.includes('.');
+  if (temV && temP){
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g,'').replace(',','.');
+    else s = s.replace(/,/g,'');
+  } else if (temV) s = s.replace(/\./g,'').replace(',','.');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+const BRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+function fmt(v){ return (v===null||v===undefined||isNaN(v)) ? '—' : BRL.format(v); }
+function fmtPct(v){ return (v===null||v===undefined||isNaN(v)) ? '—' : (v*100).toLocaleString('pt-BR',{maximumFractionDigits:1}) + '%'; }
+function fmtRoas(v){ return (v===null||v===undefined||isNaN(v)||!isFinite(v)) ? '—' : v.toLocaleString('pt-BR',{maximumFractionDigits:2}) + 'x'; }
+function fmtNum(v,casas){ return (v===null||v===undefined||isNaN(v)) ? '—' : v.toLocaleString('pt-BR',{maximumFractionDigits:casas??2}); }
+
+/* ---------- estado ---------- */
+let cfg = null;
+
+function carregar(){
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(CHAVE)); } catch(e){}
+  cfg = JSON.parse(JSON.stringify(PADRAO));
+  if (salvo){
+    Object.assign(cfg, salvo);
+    if (!Array.isArray(cfg.taxas) || cfg.taxas.length !== PADRAO.taxas.length) cfg.taxas = JSON.parse(JSON.stringify(PADRAO.taxas));
+    if (!Array.isArray(cfg.rows)) cfg.rows = [];
+  }
+  if (!salvo || !salvo.rows || !salvo.rows.length) carregarExemplos(false);
+}
+
+function salvar(){
+  cfg.modalidade = document.getElementById('cfg-modalidade').value;
+  cfg.campanha    = num(document.getElementById('cfg-campanha').value)    || 0;
+  cfg.antecip     = num(document.getElementById('cfg-antecip').value)     || 0;
+  cfg.taxaAntecip = num(document.getElementById('cfg-taxaantecip').value) || 0;
+  cfg.imposto     = num(document.getElementById('cfg-imposto').value)     || 0;
+  cfg.nf          = num(document.getElementById('cfg-nf').value)          || 0;
+  cfg.cpfAdd      = (isNaN(num(document.getElementById('cfg-cpfadd').value))) ? 3 : num(document.getElementById('cfg-cpfadd').value);
+  cfg.cap         = document.getElementById('cfg-cap').checked;
+  document.querySelectorAll('#tab-taxas input[data-ti]').forEach(inp=>{
+    const i = +inp.dataset.ti, campo = inp.dataset.campo, v = num(inp.value);
+    if (campo === 'pct' || campo === 'add'){ if(!isNaN(v)) cfg.taxas[i][campo] = v; }
+  });
+  localStorage.setItem(CHAVE, JSON.stringify(cfg));
+}
+
+/* ---------- NÚCLEO DE CÁLCULO (idêntico às fórmulas da planilha) ---------- */
+function coefFaixa(i){
+  const t = cfg.taxas[i];
+  const ehUltima = i === cfg.taxas.length - 1;
+  const lo = i === 0 ? 0 : cfg.taxas[i-1].hi;
+  return {lo, hi:t.hi, pct:t.pct/100, add:t.add, meiaRegra:!!t.meiaRegra};
+}
+function faixaDoPreco(p){
+  for (let i=0;i<cfg.taxas.length;i++){
+    if (p <= cfg.taxas[i].hi) return i;
+  }
+  return cfg.taxas.length - 1;
+}
+/* Taxa Shopee = I21 da planilha:
+   IF(preco<=8; preco*%faixa1 + preco/2;
+      preco*%faixa + adicional  (por faixa))
+   + 3 se CPF  +  preco*%Campanha                                        */
+function taxaShopee(p){
+  const campanha = (cfg.campanha||0)/100;
+  const i = faixaDoPreco(p);
+  const f = coefFaixa(i);
+  let base = f.meiaRegra ? (f.pct*p + p/2) : (f.pct*p + f.add);
+  if (cfg.cap) base = Math.min(base, 100);
+  if (cfg.modalidade === 'CPF') base += (cfg.cpfAdd ?? 3);
+  return base + p*campanha;
+}
+/* Calcula todos os indicadores de um cenário (I..P da planilha) */
+function calcularCenario(custoTotal, preco, adsPct){
+  if (preco === null || isNaN(preco)) return null;
+  const taxa      = taxaShopee(preco);
+  const imposto   = preco * (cfg.imposto||0)/100;                       // J = H*$C$15
+  const nf        = preco * (cfg.nf||0)/100;                            // K = H*$C$14
+  const antecip   = ((preco - taxa) * (cfg.antecip||0)/100) * ((cfg.taxaAntecip||0)/100); // L = ((H-I)*$C$12)*$C$13
+  const lucro     = preco - custoTotal - (taxa + imposto + nf + antecip); // M = H - (D:F) - (I:L)
+  const lucroPct  = preco ? lucro/preco : NaN;                          // N = M/H
+  const ads       = (adsPct||0)/100;
+  const invest    = lucro * ads;                                        // P = M*P$17
+  const roas      = (ads>0 ? preco/(lucro*ads) : (lucro ? preco/lucro : NaN)); // O
+  return {taxa, imposto, nf, antecip, lucro, lucroPct, roas, invest};
+}
+
+/* ---------- exemplos da planilha (linhas 20–25) p/ conferência ---------- */
+const EXEMPLOS = [
+  {id:'Ex 1', titulo:'Exemplo 1', custo:5,  insumos:1,  outros:0, preco:75,  exp:{taxa:19,   lucro:50,    roas:3}},
+  {id:'Ex 2', titulo:'Exemplo 2', custo:20, insumos:2,  outros:0, preco:85,  exp:{taxa:27.9, lucro:35.1,  roas:4.8433048433}},
+  {id:'Ex 3', titulo:'Exemplo 3', custo:40, insumos:2,  outros:0, preco:105, exp:{taxa:34.7, lucro:28.3,  roas:7.4204946996}},
+  {id:'Ex 4', titulo:'Exemplo 4', custo:60, insumos:2,  outros:0, preco:205, exp:{taxa:54.7, lucro:88.3,  roas:4.6432616082}},
+  {id:'Ex 5', titulo:'Exemplo 5', custo:80, insumos:2,  outros:0, preco:505, exp:{taxa:96.7, lucro:326.3, roas:3.0953110634}},
+  {id:'Ex 6', titulo:'Exemplo 5b (≤R$8)', custo:1, insumos:0.2, outros:0, preco:7, exp:{taxa:4.9, lucro:0.9, roas:15.5555555556}},
+];
+function carregarExemplos(reRender = true){
+  cfg.rows = EXEMPLOS.map(e => ({id:e.id, titulo:e.titulo, custo:e.custo, insumos:e.insumos, outros:e.outros,
+                                 precos:[e.preco,null,null,null]}));
+  if (reRender){ renderTabela(); }
+  salvar();
+}
+function autoTeste(){
+  const backupMod = cfg.modalidade, backupCam = cfg.campanha,
+        backupAnt = cfg.antecip, backupTaxa = cfg.taxaAntecip,
+        backupImp = cfg.imposto, backupNf = cfg.nf, backupCap = cfg.cap;
+  cfg.modalidade='CNPJ'; cfg.campanha=0; cfg.antecip=0; cfg.taxaAntecip=0; cfg.imposto=0; cfg.nf=0; cfg.cap=false;
+  let ok = 0;
+  for (const e of EXEMPLOS){
+    const r = calcularCenario(e.custo+e.insumos+e.outros, e.preco, 50);
+    const perto = (a,b)=>Math.abs(a-b) < Math.max(1e-6, Math.abs(b)*1e-9);
+    if (r && perto(r.taxa,e.exp.taxa) && perto(r.lucro,e.exp.lucro) && perto(r.roas,e.exp.roas)) ok++;
+  }
+  cfg.modalidade=backupMod; cfg.campanha=backupCam; cfg.antecip=backupAnt;
+  cfg.taxaAntecip=backupTaxa; cfg.imposto=backupImp; cfg.nf=backupNf; cfg.cap=backupCap;
+  return ok;
+}
+
+/* ---------- interface: tabela de taxas ---------- */
+function renderTaxas(){
+  const tb = document.getElementById('tab-taxas');
+  let h = '<tr><th>Faixa de preço</th><th>Percentual (%)</th><th>Adicional por item (R$)</th></tr>';
+  cfg.taxas.forEach((t,i)=>{
+    h += `<tr>
+      <td>${t.rotulo}</td>
+      <td style="text-align:right"><input data-ti="${i}" data-campo="pct" value="${t.pct}" oninput="salvar(); renderCorpo();"></td>
+      <td style="text-align:right"><input data-ti="${i}" data-campo="add" value="${t.add}" ${t.meiaRegra?'disabled title="Nesta faixa o adicional é 50% do preço"':''} oninput="salvar(); renderCorpo();"></td>
+    </tr>`;
+  });
+  tb.innerHTML = h;
+  document.getElementById('cfg-modalidade').value = cfg.modalidade;
+  document.getElementById('cfg-campanha').value    = cfg.campanha;
+  document.getElementById('cfg-antecip').value     = cfg.antecip;
+  document.getElementById('cfg-taxaantecip').value = cfg.taxaAntecip;
+  document.getElementById('cfg-imposto').value     = cfg.imposto;
+  document.getElementById('cfg-nf').value          = cfg.nf;
+  document.getElementById('cfg-cpfadd').value      = cfg.cpfAdd;
+  document.getElementById('cfg-cap').checked       = !!cfg.cap;
+}
+
+/* ---------- interface: tabela de produtos ---------- */
+function cabecalho(){
+  let h = '<thead><tr class="grupo">' +
+    '<th rowspan="2" style="left:0; z-index:22; min-width:26px;">#</th>' +
+    '<th rowspan="2" style="min-width:90px;">Id do Anúncio</th>' +
+    '<th rowspan="2" style="min-width:180px;">Título do Anúncio</th>' +
+    '<th rowspan="2" style="min-width:90px;">Custo Unitário</th>' +
+    '<th rowspan="2" style="min-width:80px;">Insumos</th>' +
+    '<th rowspan="2" style="min-width:90px;">Outros Custos</th>' +
+    '<th rowspan="2" style="min-width:90px;">Custo Total</th>' +
+    '<th rowspan="2" style="min-width:36px;"></th>';
+  CENARIOS.forEach(c=>{ h += `<th colspan="9" class="${c.classe}">${c.nome}
+      <span style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-size:.68rem; text-transform:none;">
+      ADS% <input data-ads="${c.chave}" value="${(cfg.ads&&cfg.ads[c.chave])??50}" style="width:44px; padding:2px 4px; border-radius:4px; border:1px solid rgba(0,0,0,.15); text-align:right;" oninput="lerAds(); renderCorpo(); salvar();"></span>
+    </th>`; });
+  h += '</tr><tr class="colunas">';
+  CENARIOS.forEach(c=>{
+    h += `<th class="${c.classe}">Preço R$</th><th class="${c.classe}">Taxa Shopee</th><th class="${c.classe}">Imposto</th>
+          <th class="${c.classe}">NF Entrada</th><th class="${c.classe}">Antecipação</th><th class="${c.classe}">Lucro R$</th>
+          <th class="${c.classe}">Lucro %</th><th class="${c.classe}">ROAS Mín</th><th class="${c.classe}">Invest. ADS</th>`;
+  });
+  h += '</tr></thead>';
+  return h;
+}
+
+function renderTabela(){
+  renderTaxas();
+  const tab = document.getElementById('tabela');
+  tab.innerHTML = cabecalho() + '<tbody id="corpo"></tbody>';
+  renderCorpo();
+}
+
+/* Células calculadas de um cenário, com ids estáveis p/ atualização pontual */
+function celulasCalc(idx, ci, res){
+  const id = f => `id="rc-${idx}-${ci}-${f}"`;
+  if (!res){
+    return ['taxa','imposto','nf','antec','lucro','lucropct','roas','invest']
+      .map(f => `<td class="calc" ${id(f)}></td>`).join('');
+  }
+  const clsLucro = res.lucro >= 0 ? 'lucro-pos' : 'lucro-neg';
+  return `<td class="calc" ${id('taxa')}>${fmt(res.taxa)}</td>` +
+         `<td class="calc" ${id('imposto')}>${fmt(res.imposto)}</td>` +
+         `<td class="calc" ${id('nf')}>${fmt(res.nf)}</td>` +
+         `<td class="calc" ${id('antec')}>${fmt(res.antecip)}</td>` +
+         `<td class="calc ${clsLucro}" ${id('lucro')}>${fmt(res.lucro)}</td>` +
+         `<td class="calc ${clsLucro}" ${id('lucropct')}>${fmtPct(res.lucroPct)}</td>` +
+         `<td class="calc" ${id('roas')}>${fmtRoas(res.roas)}</td>` +
+         `<td class="calc" ${id('invest')}>${fmt(res.invest)}</td>`;
+}
+
+function calcularLinha(r, ci){
+  const custoTotal = (num(r.custo)||0) + (num(r.insumos)||0) + (num(r.outros)||0);
+  const preco = r.precos[ci]==='' || r.precos[ci]===null || r.precos[ci]===undefined ? null : num(r.precos[ci]);
+  const ads = (cfg.ads && cfg.ads[CENARIOS[ci].chave]) ?? 50;
+  return { custoTotal, res: preco===null ? null : calcularCenario(custoTotal, preco, ads) };
+}
+
+/* Recalcula apenas as células calculadas da linha idx — sem recriar os inputs,
+   para não perder o foco nem apagar vírgulas/pontos durante a digitação. */
+function atualizarLinha(idx){
+  const r = cfg.rows[idx];
+  if (!r) return;
+  const { custoTotal } = calcularLinha(r, 0);
+  const ct = document.getElementById(`ct-${idx}`);
+  if (ct) ct.textContent = fmt(custoTotal);
+  CENARIOS.forEach((c,ci)=>{
+    const { res } = calcularLinha(r, ci);
+    const vals = res
+      ? {taxa:fmt(res.taxa), imposto:fmt(res.imposto), nf:fmt(res.nf), antec:fmt(res.antecip),
+         lucro:fmt(res.lucro), lucropct:fmtPct(res.lucroPct), roas:fmtRoas(res.roas), invest:fmt(res.invest)}
+      : {taxa:'', imposto:'', nf:'', antec:'', lucro:'', lucropct:'', roas:'', invest:''};
+    for (const [f,txt] of Object.entries(vals)){
+      const td = document.getElementById(`rc-${idx}-${ci}-${f}`);
+      if (!td) continue;
+      td.textContent = txt;
+      if (f==='lucro' || f==='lucropct'){
+        td.classList.toggle('lucro-pos', !!res && res.lucro >= 0);
+        td.classList.toggle('lucro-neg', !!res && res.lucro < 0);
+      }
+    }
+  });
+}
+
+function renderCorpo(){
+  const corpo = document.getElementById('corpo');
+  if (!cfg.rows.length){ corpo.innerHTML = '<tr><td colspan="43"><div class="vazio-msg">Nenhum produto. Clique em <b>➕ Adicionar Produto</b>.</div></td></tr>'; return; }
+  let h = '';
+  cfg.rows.forEach((r,idx)=>{
+    const { custoTotal } = calcularLinha(r, 0);
+    h += `<tr>
+      <td class="calc grupo-fixos" style="text-align:center">${idx+1}</td>
+      <td class="id"><input value="${esc(r.id)}" data-i="${idx}" data-c="id" oninput="lerLinha(this); salvar();"></td>
+      <td class="txt"><input value="${esc(r.titulo)}" data-i="${idx}" data-c="titulo" oninput="lerLinha(this); salvar();"></td>
+      <td><input value="${esc(r.custo)}" data-i="${idx}" data-c="custo" oninput="lerLinha(this); salvar(); atualizarLinha(${idx});"></td>
+      <td><input value="${esc(r.insumos)}" data-i="${idx}" data-c="insumos" oninput="lerLinha(this); salvar(); atualizarLinha(${idx});"></td>
+      <td><input value="${esc(r.outros)}" data-i="${idx}" data-c="outros" oninput="lerLinha(this); salvar(); atualizarLinha(${idx});"></td>
+      <td class="calc grupo-fixos" id="ct-${idx}">${fmt(custoTotal)}</td>
+      <td><button class="excluir" title="Excluir produto" onclick="delLinha(${idx})">✕</button></td>`;
+    CENARIOS.forEach((c,ci)=>{
+      const { res } = calcularLinha(r, ci);
+      h += `<td><input class="preco" value="${esc(r.precos[ci])}" data-i="${idx}" data-p="${ci}" oninput="lerLinha(this); salvar(); atualizarLinha(${idx});"></td>`;
+      h += celulasCalc(idx, ci, res);
+    });
+    h += '</tr>';
+  });
+  corpo.innerHTML = h;
+}
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function lerLinha(inp){
+  const i = +inp.dataset.i;
+  if (inp.dataset.c){ cfg.rows[i][inp.dataset.c] = inp.value; }
+  if (inp.dataset.p !== undefined){ cfg.rows[i].precos[+inp.dataset.p] = inp.value; }
+}
+function lerAds(){
+  cfg.ads = cfg.ads || {};
+  document.querySelectorAll('input[data-ads]').forEach(inp=>{
+    const v = num(inp.value); if(!isNaN(v)) cfg.ads[inp.dataset.ads] = v;
+  });
+}
+function addLinha(){ cfg.rows.push({id:'', titulo:'', custo:'', insumos:'', outros:'', precos:['','','','']}); salvar(); renderCorpo(); }
+function delLinha(i){ cfg.rows.splice(i,1); salvar(); renderCorpo(); }
+function limparTudo(){
+  if (!confirm('Apagar todos os produtos e configurações salvas?')) return;
+  localStorage.removeItem(CHAVE);
+  cfg = JSON.parse(JSON.stringify(PADRAO)); cfg.rows = []; cfg.ads = {normal:50,promo:50,banner:50,flash:50};
+  renderTabela(); salvar();
+}
+
+/* ---------- simulador inverso ---------- */
+/* Lucro(p) = p(1−k−g−A(1−g)) − (C + B(1−g))  →  linear em p dentro de cada faixa.
+   A,B = coeficientes da taxa na faixa; k = imposto%+NF%; g = antecip%×taxa%. */
+function coefsFaixa(i){
+  const f = coefFaixa(i);
+  const campanha = (cfg.campanha||0)/100;
+  const A = (f.meiaRegra ? f.pct + 0.5 : f.pct) + campanha;
+  let B = f.meiaRegra ? 0 : f.add;
+  if (cfg.modalidade === 'CPF') B += (cfg.cpfAdd ?? 3);
+  return {A, B, lo:f.lo, hi:f.hi, rotulo:cfg.taxas[i].rotulo};
+}
+function lucroEm(p, custoTotal, alvo){ // usado na busca binária (suporta cap de R$100)
+  const taxa = taxaShopee(p);
+  const imposto = p*(cfg.imposto||0)/100, nf = p*(cfg.nf||0)/100;
+  const antec = ((p - taxa)*(cfg.antecip||0)/100)*((cfg.taxaAntecip||0)/100);
+  return p - custoTotal - (taxa + imposto + nf + antec);
+}
+function precoIdeal(custoTotal, alvo, tipoAlvo){
+  const k = (cfg.imposto||0)/100 + (cfg.nf||0)/100;
+  const g = ((cfg.antecip||0)/100)*((cfg.taxaAntecip||0)/100);
+  const t = tipoAlvo === 'pct' ? alvo/100 : 0;
+  const T = tipoAlvo === 'rs' ? alvo : 0;
+  const candidatas = [];
+  for (let i=0;i<cfg.taxas.length;i++){
+    const c = coefsFaixa(i);
+    const D = 1 - k - g - c.A*(1-g);          // derivada do lucro
+    const fixo = custoTotal + c.B*(1-g) + T;
+    if (D - t <= 0) continue;                  // alvo inalcançável nesta faixa
+    const p = fixo / (D - t);
+    if (p >= c.lo && p <= c.hi + 1e-9) candidatas.push({p, faixa:i});
+  }
+  candidatas.sort((a,b)=>a.p-b.p);
+  return candidatas[0] || null;
+}
+function calcularSim(){
+  const custoTotal = (num(document.getElementById('sim-custo').value)||0)
+                   + (num(document.getElementById('sim-insumos').value)||0)
+                   + (num(document.getElementById('sim-outros').value)||0);
+  const tipoAlvo = document.getElementById('sim-tipo').value;
+  const alvo = num(document.getElementById('sim-alvo').value);
+  const ads = num(document.getElementById('sim-ads').value);
+  const erro = document.getElementById('sim-erro');
+  const resBox = document.getElementById('sim-resultado');
+  const faixasBox = document.getElementById('sim-faixas');
+
+  if (isNaN(alvo) || (tipoAlvo==='rs' && alvo<=0) || custoTotal<=0){
+    erro.classList.remove('oculto');
+    erro.innerHTML = 'Preencha o <b>custo total</b> e o <b>lucro desejado</b> (para lucro em R$, o valor deve ser positivo).';
+    resBox.innerHTML = ''; faixasBox.innerHTML = ''; return;
+  }
+  const ideal = precoIdeal(custoTotal, alvo, tipoAlvo);
+  if (!ideal || cfg.cap){
+    // fallback: busca binária (funciona até com o limite de R$100 ligado)
+    let lo = 0.01, hi = 1000000, achou = null;
+    for (let it=0; it<200; it++){
+      const mid = (lo+hi)/2;
+      if (lucroEm(mid, custoTotal, alvo) >= (tipoAlvo==='pct'? alvo/100*mid : alvo)) { hi = mid; achou = mid; } else lo = mid;
+    }
+    if (achou){
+      mostrarSim(achou, custoTotal, tipoAlvo, alvo, ads);
+      if (!ideal) { erro.classList.remove('oculto'); erro.innerHTML = '⚠️ Com a configuração atual o alvo só é atingido em faixas limitadas (verifique % de taxas). Preço encontrado por busca: <b>' + fmt(achou) + '</b>'; }
+      else erro.classList.add('oculto');
+    } else {
+      erro.classList.remove('oculto');
+      erro.innerHTML = '❌ Impossível atingir esse lucro: as taxas (%) consomem mais do que a margem desejada. Reduza o lucro alvo ou as taxas.';
+      resBox.innerHTML = ''; faixasBox.innerHTML = '';
+    }
+    return;
+  }
+  erro.classList.add('oculto');
+  mostrarSim(ideal.p, custoTotal, tipoAlvo, alvo, ads, ideal.faixa);
+}
+function mostrarSim(p, custoTotal, tipoAlvo, alvo, ads, faixaIdx){
+  const r = calcularCenario(custoTotal, p, isNaN(ads)?50:ads);
+  const lucroAlvo = tipoAlvo==='pct' ? p*alvo/100 : alvo;
+  document.getElementById('sim-resultado').innerHTML = `
+    <div class="card-res destaque"><div class="rotulo">Preço ideal de venda</div><div class="valor">${fmt(p)}</div></div>
+    <div class="card-res"><div class="rotulo">Taxa Shopee</div><div class="valor">${fmt(r.taxa)}</div></div>
+    <div class="card-res"><div class="rotulo">Imposto</div><div class="valor">${fmt(r.imposto)}</div></div>
+    <div class="card-res"><div class="rotulo">NF Entrada</div><div class="valor">${fmt(r.nf)}</div></div>
+    <div class="card-res"><div class="rotulo">Antecipação</div><div class="valor">${fmt(r.antecip)}</div></div>
+    <div class="card-res"><div class="rotulo">Lucro por venda</div><div class="valor ${r.lucro>=0?'verde':'vermelho'}">${fmt(r.lucro)}</div></div>
+    <div class="card-res"><div class="rotulo">Lucro %</div><div class="valor">${fmtPct(r.lucroPct)}</div></div>
+    <div class="card-res"><div class="rotulo">ROAS mínimo</div><div class="valor">${fmtRoas(r.roas)}</div></div>
+    <div class="card-res"><div class="rotulo">Teto Invest. ADS</div><div class="valor">${fmt(r.invest)}</div></div>`;
+  if (faixaIdx !== undefined){
+    const k = (cfg.imposto||0)/100 + (cfg.nf||0)/100;
+    const g = ((cfg.antecip||0)/100)*((cfg.taxaAntecip||0)/100);
+    const t = tipoAlvo==='pct' ? alvo/100 : 0;
+    const T = tipoAlvo==='rs' ? alvo : 0;
+    let linhas = '';
+    for (let i=0;i<cfg.taxas.length;i++){
+      const c = coefsFaixa(i);
+      const D = 1 - k - g - c.A*(1-g);
+      const pFaixa = (D - t > 0) ? (custoTotal + c.B*(1-g) + T)/(D - t) : null;
+      const valida = pFaixa !== null && pFaixa >= c.lo && pFaixa <= c.hi + 1e-9;
+      const melhor = valida && Math.abs(pFaixa - p) < 1e-6;
+      linhas += `<tr class="${valida?'valida':''} ${melhor?'melhor':''}">
+        <td>${c.rotulo}${melhor?' ⭐':''}</td>
+        <td>${fmtNum(c.A*100,1)}%</td>
+        <td>${fmt(c.B)}</td>
+        <td>${pFaixa===null?'—':fmt(pFaixa)}</td>
+        <td style="text-align:center">${valida?'✅':'—'}</td></tr>`;
+    }
+    document.getElementById('sim-faixas').innerHTML = `
+      <table class="faixas">
+        <tr><th>Faixa de preço</th><th>Taxa % (+campanha)</th><th>Adicional fixo</th><th>Preço necessário</th><th>Válido?</th></tr>
+        ${linhas}
+      </table>
+      <p style="font-size:.75rem; color:#999; margin-top:6px;">⭐ = menor preço válido que atinge o lucro desejado (respeitando os saltos de taxa entre faixas).</p>`;
+  }
+}
+function calcularSim2(){
+  const p = num(document.getElementById('sim2-preco').value);
+  const box = document.getElementById('sim2-resultado');
+  if (isNaN(p) || p<=0){ box.innerHTML=''; return; }
+  const custoTotal = (num(document.getElementById('sim-custo').value)||0)
+                   + (num(document.getElementById('sim-insumos').value)||0)
+                   + (num(document.getElementById('sim-outros').value)||0);
+  const r = calcularCenario(custoTotal, p, num(document.getElementById('sim-ads').value)||50);
+  if (!r){ box.innerHTML=''; return; }
+  const cls = r.lucro>=0?'verde':'vermelho';
+  box.innerHTML = `
+    <div class="card-res"><div class="rotulo">Custo total</div><div class="valor">${fmt(custoTotal)}</div></div>
+    <div class="card-res"><div class="rotulo">Taxa Shopee</div><div class="valor">${fmt(r.taxa)}</div></div>
+    <div class="card-res"><div class="rotulo">Imposto</div><div class="valor">${fmt(r.imposto)}</div></div>
+    <div class="card-res"><div class="rotulo">NF Entrada</div><div class="valor">${fmt(r.nf)}</div></div>
+    <div class="card-res"><div class="rotulo">Antecipação</div><div class="valor">${fmt(r.antecip)}</div></div>
+    <div class="card-res"><div class="rotulo">Lucro R$</div><div class="valor ${cls}">${fmt(r.lucro)}</div></div>
+    <div class="card-res"><div class="rotulo">Lucro %</div><div class="valor ${cls}">${fmtPct(r.lucroPct)}</div></div>
+    <div class="card-res"><div class="rotulo">ROAS mínimo</div><div class="valor">${fmtRoas(r.roas)}</div></div>
+    <div class="card-res"><div class="rotulo">Teto Invest. ADS</div><div class="valor">${fmt(r.invest)}</div></div>`;
+}
+
+/* ---------- CSV ---------- */
+function exportarCSV(){
+  let linhas = [['Id','Titulo','Custo Unitario','Insumos','Outros Custos','Custo Total']];
+  CENARIOS.forEach(c=>{ linhas[0].push(
+    `${c.nome} - Preco`,`${c.nome} - Taxa Shopee`,`${c.nome} - Imposto`,`${c.nome} - NF Entrada`,
+    `${c.nome} - Antecipacao`,`${c.nome} - Lucro R$`,`${c.nome} - Lucro %`,`${c.nome} - ROAS Min`,`${c.nome} - Invest ADS`); });
+  const ads = cfg.ads||{};
+  cfg.rows.forEach(r=>{
+    const custoTotal = (num(r.custo)||0)+(num(r.insumos)||0)+(num(r.outros)||0);
+    const linha = [r.id, r.titulo, num(r.custo)||0, num(r.insumos)||0, num(r.outros)||0, custoTotal.toFixed(2).replace('.',',')];
+    CENARIOS.forEach((c,ci)=>{
+      const preco = r.precos[ci]===''||r.precos[ci]==null ? null : num(r.precos[ci]);
+      const res = preco===null ? null : calcularCenario(custoTotal, preco, ads[c.chave]??50);
+      if (res){
+        linha.push(preco.toFixed(2), res.taxa.toFixed(2), res.imposto.toFixed(2), res.nf.toFixed(2), res.antecip.toFixed(2),
+          res.lucro.toFixed(2), (res.lucroPct*100).toFixed(1), res.roas.toFixed(2), res.invest.toFixed(2));
+      } else linha.push('','','','','','','','','');
+    });
+    linhas.push(linha);
+  });
+  const csv = '\uFEFF' + linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'precificacao_shopee.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------- abas ---------- */
+function trocarAba(qual){
+  document.getElementById('aba-prec').classList.toggle('oculto', qual!=='prec');
+  document.getElementById('aba-sim').classList.toggle('oculto', qual!=='sim');
+  document.getElementById('tabbtn-prec').classList.toggle('ativa', qual==='prec');
+  document.getElementById('tabbtn-sim').classList.toggle('ativa', qual==='sim');
+  if (qual==='sim'){ calcularSim(); calcularSim2(); }
+}
+
+/* ---------- inicialização ---------- */
+carregar();
+if (!cfg.ads) cfg.ads = {normal:50, promo:50, banner:50, flash:50};
+renderTabela();
+document.getElementById('sim-ads').value = 50;
+document.getElementById('sim-alvo').value = 20;
+const ok = autoTeste();
+document.getElementById('badge-teste').textContent = `✓ ${ok}/${EXEMPLOS.length} exemplos conferem com a planilha original`;
+</script>
+</body>
+</html>
