@@ -104,6 +104,29 @@
 <section id="aba-prec">
 
   <div class="painel">
+    <h2>☁️ Sincronização entre aparelhos</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:end;">
+      <div class="campo" style="min-width:200px;">
+        <label>Chave de acesso</label>
+        <input type="text" id="nuvem-chave" placeholder="ex.: GATOPRETO42" style="text-transform:uppercase;">
+      </div>
+      <button class="btn secundario" onclick="criarChave()">🔑 Criar chave</button>
+      <button class="btn" onclick="conectarNuvem()">🔗 Conectar</button>
+      <button class="btn cinza" onclick="baixarNuvem()">⬇️ Baixar dados da nuvem</button>
+    </div>
+    <div style="font-size:.78rem; color:#888; margin-top:8px;" id="nuvem-status">Usando a mesma chave em outro celular/computador, seus produtos aparecem lá também.</div>
+    <details class="detalhes">
+      <summary>Como ativar a nuvem (uma vez só, ~2 min)</summary>
+      <div class="nota">
+        <b>1.</b> Acesse <b>vercel.com</b> → abra seu projeto <b>projetoprecificacaoshopee</b> → aba <b>Storage</b>.<br>
+        <b>2.</b> Clique em <b>Create Database</b> → escolha <b>Upstash Redis</b> → plano <b>Free</b> → conecte ao projeto.<br>
+        <b>3.</b> Vá em <b>Deployments</b> → no último deploy, clique em <b>⋯ → Redeploy</b> (isso liga as variáveis do banco).<br>
+        <b>4.</b> Volte aqui, crie sua chave e clique em <b>Conectar</b>. 🔐 Quem tiver a chave acessa os dados — não compartilhe.
+      </div>
+    </details>
+  </div>
+
+  <div class="painel">
     <h2>⚙️ Configurações (Painel Central)</h2>
     <div class="grid-config">
       <div class="campo">
@@ -138,6 +161,14 @@
         <label>NF de Entrada (% sobre o preço)</label>
         <input type="text" id="cfg-nf" value="0" oninput="salvar(); renderCorpo();">
         <small>% pago na emissão da NF de entrada</small>
+      </div>
+      <div class="campo">
+        <label>Investimento em ADS</label>
+        <select id="cfg-adsmodo" onchange="salvar(); renderTabela(); atualizarLabelSimAds(); calcularSim(); calcularSim2();">
+          <option value="pct">% do lucro (como na planilha)</option>
+          <option value="rs">Valor fixo em R$ por venda</option>
+        </select>
+        <small>Escolha se o teto de ADS é % do lucro ou R$ fixo</small>
       </div>
     </div>
 
@@ -204,7 +235,7 @@
             </select>
           </div>
           <div class="campo"><label id="sim-alvo-label">Lucro desejado (%)</label><input type="text" id="sim-alvo" oninput="calcularSim()"></div>
-          <div class="campo"><label>% Investimento ADS</label><input type="text" id="sim-ads" oninput="calcularSim()"><small>Para calcular ROAS mínimo</small></div>
+          <div class="campo"><label id="sim-ads-label">% Investimento ADS</label><input type="text" id="sim-ads" oninput="calcularSim()"><small>Para calcular ROAS mínimo</small></div>
         </div>
         <div id="sim-erro" class="nota oculto" style="background:#ffebee; border-color:#ef9a9a; color:#b71c1c;"></div>
       </div>
@@ -244,9 +275,12 @@ const CENARIOS = [
   {chave:'flash',  nome:'Ofertas Relâmpago', classe:'g-flash',  cor:'var(--roxo)'},
 ];
 
+var nuvemTimer = null, nuvemConectada = false;
+
 const PADRAO = {
   modalidade:'CNPJ', campanha:0, antecip:0, taxaAntecip:0, imposto:0, nf:0,
   cpfAdd:3, cap:false,
+  adsModo:'pct', adsRs:{normal:0, promo:0, banner:0, flash:0}, nuvemChave:'',
   taxas:[
     {rotulo:'Até R$ 8,00',                  hi:8,     pct:20, add:0,  meiaRegra:true},
     {rotulo:'Até R$ 79,99',                 hi:79.99, pct:20, add:4},
@@ -305,7 +339,10 @@ function salvar(){
     const i = +inp.dataset.ti, campo = inp.dataset.campo, v = num(inp.value);
     if (campo === 'pct' || campo === 'add'){ if(!isNaN(v)) cfg.taxas[i][campo] = v; }
   });
+  const modoSel = document.getElementById('cfg-adsmodo');
+  if (modoSel) cfg.adsModo = modoSel.value;
   localStorage.setItem(CHAVE, JSON.stringify(cfg));
+  salvarNuvem();
 }
 
 /* ---------- NÚCLEO DE CÁLCULO (idêntico às fórmulas da planilha) ---------- */
@@ -334,8 +371,23 @@ function taxaShopee(p){
   if (cfg.modalidade === 'CPF') base += (cfg.cpfAdd ?? 3);
   return base + p*campanha;
 }
+/* Configuração de ADS conforme o modo escolhido: % do lucro ou R$ fixo */
+function getAdsCfg(chave){
+  const modo = cfg.adsModo === 'rs' ? 'rs' : 'pct';
+  const loja = modo === 'rs' ? (cfg.adsRs || {}) : (cfg.ads || {});
+  return { modo, valor: loja[chave] ?? (modo === 'pct' ? 50 : 0) };
+}
+function getSimAdsCfg(){
+  const v = num(document.getElementById('sim-ads').value);
+  return { modo: cfg.adsModo === 'rs' ? 'rs' : 'pct', valor: isNaN(v) ? 0 : v };
+}
+function atualizarLabelSimAds(){
+  const el = document.getElementById('sim-ads-label');
+  if (el) el.textContent = cfg.adsModo === 'rs' ? 'Investimento ADS (R$ por venda)' : '% Investimento ADS';
+}
+
 /* Calcula todos os indicadores de um cenário (I..P da planilha) */
-function calcularCenario(custoTotal, preco, adsPct){
+function calcularCenario(custoTotal, preco, ads){
   if (preco === null || isNaN(preco)) return null;
   const taxa      = taxaShopee(preco);
   const imposto   = preco * (cfg.imposto||0)/100;                       // J = H*$C$15
@@ -343,9 +395,10 @@ function calcularCenario(custoTotal, preco, adsPct){
   const antecip   = ((preco - taxa) * (cfg.antecip||0)/100) * ((cfg.taxaAntecip||0)/100); // L = ((H-I)*$C$12)*$C$13
   const lucro     = preco - custoTotal - (taxa + imposto + nf + antecip); // M = H - (D:F) - (I:L)
   const lucroPct  = preco ? lucro/preco : NaN;                          // N = M/H
-  const ads       = (adsPct||0)/100;
-  const invest    = lucro * ads;                                        // P = M*P$17
-  const roas      = (ads>0 ? preco/(lucro*ads) : (lucro ? preco/lucro : NaN)); // O
+  /* Investimento ADS: % do lucro (planilha) ou valor fixo em R$ */
+  const a         = ads || {modo:'pct', valor:0};
+  const invest    = a.modo === 'rs' ? (a.valor||0) : lucro * (a.valor||0)/100; // P
+  const roas      = invest > 0 ? preco/invest : (lucro ? preco/lucro : NaN);   // O
   return {taxa, imposto, nf, antecip, lucro, lucroPct, roas, invest};
 }
 
@@ -371,7 +424,7 @@ function autoTeste(){
   cfg.modalidade='CNPJ'; cfg.campanha=0; cfg.antecip=0; cfg.taxaAntecip=0; cfg.imposto=0; cfg.nf=0; cfg.cap=false;
   let ok = 0;
   for (const e of EXEMPLOS){
-    const r = calcularCenario(e.custo+e.insumos+e.outros, e.preco, 50);
+    const r = calcularCenario(e.custo+e.insumos+e.outros, e.preco, {modo:'pct', valor:50});
     const perto = (a,b)=>Math.abs(a-b) < Math.max(1e-6, Math.abs(b)*1e-9);
     if (r && perto(r.taxa,e.exp.taxa) && perto(r.lucro,e.exp.lucro) && perto(r.roas,e.exp.roas)) ok++;
   }
@@ -400,6 +453,8 @@ function renderTaxas(){
   document.getElementById('cfg-nf').value          = cfg.nf;
   document.getElementById('cfg-cpfadd').value      = cfg.cpfAdd;
   document.getElementById('cfg-cap').checked       = !!cfg.cap;
+  const modoSel = document.getElementById('cfg-adsmodo');
+  if (modoSel) modoSel.value = cfg.adsModo || 'pct';
 }
 
 /* ---------- interface: tabela de produtos ---------- */
@@ -415,7 +470,7 @@ function cabecalho(){
     '<th rowspan="2" style="min-width:36px;"></th>';
   CENARIOS.forEach(c=>{ h += `<th colspan="9" class="${c.classe}">${c.nome}
       <span style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-size:.68rem; text-transform:none;">
-      ADS% <input data-ads="${c.chave}" value="${(cfg.ads&&cfg.ads[c.chave])??50}" style="width:44px; padding:2px 4px; border-radius:4px; border:1px solid rgba(0,0,0,.15); text-align:right;" oninput="lerAds(); renderCorpo(); salvar();"></span>
+      ${getAdsCfg(c.chave).modo==='rs' ? 'ADS R$' : 'ADS%'} <input data-ads="${c.chave}" value="${getAdsCfg(c.chave).valor}" style="width:44px; padding:2px 4px; border-radius:4px; border:1px solid rgba(0,0,0,.15); text-align:right;" oninput="lerAds(); renderCorpo(); salvar();"></span>
     </th>`; });
   h += '</tr><tr class="colunas">';
   CENARIOS.forEach(c=>{
@@ -455,8 +510,8 @@ function celulasCalc(idx, ci, res){
 function calcularLinha(r, ci){
   const custoTotal = (num(r.custo)||0) + (num(r.insumos)||0) + (num(r.outros)||0);
   const preco = r.precos[ci]==='' || r.precos[ci]===null || r.precos[ci]===undefined ? null : num(r.precos[ci]);
-  const ads = (cfg.ads && cfg.ads[CENARIOS[ci].chave]) ?? 50;
-  return { custoTotal, res: preco===null ? null : calcularCenario(custoTotal, preco, ads) };
+  const acfg = getAdsCfg(CENARIOS[ci].chave);
+  return { custoTotal, res: preco===null ? null : calcularCenario(custoTotal, preco, acfg) };
 }
 
 /* Recalcula apenas as células calculadas da linha idx — sem recriar os inputs,
@@ -517,9 +572,14 @@ function lerLinha(inp){
   if (inp.dataset.p !== undefined){ cfg.rows[i].precos[+inp.dataset.p] = inp.value; }
 }
 function lerAds(){
+  const modo = cfg.adsModo === 'rs' ? 'rs' : 'pct';
   cfg.ads = cfg.ads || {};
+  cfg.adsRs = cfg.adsRs || {};
   document.querySelectorAll('input[data-ads]').forEach(inp=>{
-    const v = num(inp.value); if(!isNaN(v)) cfg.ads[inp.dataset.ads] = v;
+    const v = num(inp.value); if(!isNaN(v)){
+      if (modo === 'rs') cfg.adsRs[inp.dataset.ads] = v;
+      else cfg.ads[inp.dataset.ads] = v;
+    }
   });
 }
 function addLinha(){ cfg.rows.push({id:'', titulo:'', custo:'', insumos:'', outros:'', precos:['','','','']}); salvar(); renderCorpo(); }
@@ -571,7 +631,7 @@ function calcularSim(){
                    + (num(document.getElementById('sim-outros').value)||0);
   const tipoAlvo = document.getElementById('sim-tipo').value;
   const alvo = num(document.getElementById('sim-alvo').value);
-  const ads = num(document.getElementById('sim-ads').value);
+  const acfg = getSimAdsCfg();
   const erro = document.getElementById('sim-erro');
   const resBox = document.getElementById('sim-resultado');
   const faixasBox = document.getElementById('sim-faixas');
@@ -590,7 +650,7 @@ function calcularSim(){
       if (lucroEm(mid, custoTotal, alvo) >= (tipoAlvo==='pct'? alvo/100*mid : alvo)) { hi = mid; achou = mid; } else lo = mid;
     }
     if (achou){
-      mostrarSim(achou, custoTotal, tipoAlvo, alvo, ads);
+      mostrarSim(achou, custoTotal, tipoAlvo, alvo, acfg);
       if (!ideal) { erro.classList.remove('oculto'); erro.innerHTML = '⚠️ Com a configuração atual o alvo só é atingido em faixas limitadas (verifique % de taxas). Preço encontrado por busca: <b>' + fmt(achou) + '</b>'; }
       else erro.classList.add('oculto');
     } else {
@@ -601,10 +661,10 @@ function calcularSim(){
     return;
   }
   erro.classList.add('oculto');
-  mostrarSim(ideal.p, custoTotal, tipoAlvo, alvo, ads, ideal.faixa);
+  mostrarSim(ideal.p, custoTotal, tipoAlvo, alvo, acfg, ideal.faixa);
 }
-function mostrarSim(p, custoTotal, tipoAlvo, alvo, ads, faixaIdx){
-  const r = calcularCenario(custoTotal, p, isNaN(ads)?50:ads);
+function mostrarSim(p, custoTotal, tipoAlvo, alvo, acfg, faixaIdx){
+  const r = calcularCenario(custoTotal, p, acfg);
   const lucroAlvo = tipoAlvo==='pct' ? p*alvo/100 : alvo;
   document.getElementById('sim-resultado').innerHTML = `
     <div class="card-res destaque"><div class="rotulo">Preço ideal de venda</div><div class="valor">${fmt(p)}</div></div>
@@ -650,7 +710,7 @@ function calcularSim2(){
   const custoTotal = (num(document.getElementById('sim-custo').value)||0)
                    + (num(document.getElementById('sim-insumos').value)||0)
                    + (num(document.getElementById('sim-outros').value)||0);
-  const r = calcularCenario(custoTotal, p, num(document.getElementById('sim-ads').value)||50);
+  const r = calcularCenario(custoTotal, p, getSimAdsCfg());
   if (!r){ box.innerHTML=''; return; }
   const cls = r.lucro>=0?'verde':'vermelho';
   box.innerHTML = `
@@ -671,13 +731,12 @@ function exportarCSV(){
   CENARIOS.forEach(c=>{ linhas[0].push(
     `${c.nome} - Preco`,`${c.nome} - Taxa Shopee`,`${c.nome} - Imposto`,`${c.nome} - NF Entrada`,
     `${c.nome} - Antecipacao`,`${c.nome} - Lucro R$`,`${c.nome} - Lucro %`,`${c.nome} - ROAS Min`,`${c.nome} - Invest ADS`); });
-  const ads = cfg.ads||{};
   cfg.rows.forEach(r=>{
     const custoTotal = (num(r.custo)||0)+(num(r.insumos)||0)+(num(r.outros)||0);
     const linha = [r.id, r.titulo, num(r.custo)||0, num(r.insumos)||0, num(r.outros)||0, custoTotal.toFixed(2).replace('.',',')];
     CENARIOS.forEach((c,ci)=>{
       const preco = r.precos[ci]===''||r.precos[ci]==null ? null : num(r.precos[ci]);
-      const res = preco===null ? null : calcularCenario(custoTotal, preco, ads[c.chave]??50);
+      const res = preco===null ? null : calcularCenario(custoTotal, preco, getAdsCfg(c.chave));
       if (res){
         linha.push(preco.toFixed(2), res.taxa.toFixed(2), res.imposto.toFixed(2), res.nf.toFixed(2), res.antecip.toFixed(2),
           res.lucro.toFixed(2), (res.lucroPct*100).toFixed(1), res.roas.toFixed(2), res.invest.toFixed(2));
@@ -694,6 +753,89 @@ function exportarCSV(){
   URL.revokeObjectURL(a.href);
 }
 
+/* ---------- sincronização na nuvem ---------- */
+function statusNuvem(msg, cor){
+  const el = document.getElementById('nuvem-status');
+  if (el){ el.textContent = msg; el.style.color = cor || '#888'; }
+}
+function chaveDigitada(){
+  return (document.getElementById('nuvem-chave').value||'').trim().toUpperCase();
+}
+function criarChave(){
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i=0;i<10;i++) s += abc[Math.floor(Math.random()*abc.length)];
+  document.getElementById('nuvem-chave').value = s;
+  conectarNuvem();
+}
+async function conectarNuvem(auto){
+  const chave = chaveDigitada();
+  if (!/^[A-Z0-9-]{6,32}$/.test(chave)){
+    statusNuvem('❌ A chave deve ter entre 6 e 32 letras/números (sem espaços).', '#c62828');
+    return false;
+  }
+  cfg.nuvemChave = chave;
+  localStorage.setItem(CHAVE, JSON.stringify(cfg));
+  const ok = await baixarNuvem(true);
+  if (ok){
+    nuvemConectada = true;
+    statusNuvem(auto ? '☁️ Conectado — salvando automaticamente na nuvem' : '✅ Conectado! Seus dados serão salvos na nuvem automaticamente.', '#0a8f4e');
+    salvarNuvem(); // garante que o que está nesta tela suba também
+  }
+  return ok;
+}
+async function baixarNuvem(auto){
+  const chave = chaveDigitada() || cfg.nuvemChave;
+  if (!chave){ if(!auto) statusNuvem('Digite ou crie uma chave primeiro.', '#c62828'); return false; }
+  try {
+    const r = await fetch('/api/dados?chave=' + encodeURIComponent(chave));
+    if (r.status === 503){
+      statusNuvem('⚠️ A nuvem ainda não foi ativada no servidor — siga o passo a passo em "Como ativar a nuvem" acima.', '#e65100');
+      return false;
+    }
+    if (!r.ok){ statusNuvem('❌ Erro ao consultar a nuvem (' + r.status + ').', '#c62828'); return false; }
+    const j = await r.json();
+    if (j && j.dados){
+      Object.assign(cfg, j.dados);
+      cfg.nuvemChave = chave;
+      localStorage.setItem(CHAVE, JSON.stringify(cfg));
+      renderTabela();
+      atualizarLabelSimAds();
+      statusNuvem('✅ Dados baixados da nuvem (' + (cfg.rows ? cfg.rows.length : 0) + ' produtos).', '#0a8f4e');
+    } else if (!auto){
+      statusNuvem('ℹ️ Nenhum dado na nuvem para esta chave ainda — o que salvar aqui subirá para ela.', '#888');
+    }
+    return true;
+  } catch(err){
+    statusNuvem('❌ Sem conexão com a nuvem. Abra o programa pelo endereço publicado (vercel.app).', '#c62828');
+    return false;
+  }
+}
+function salvarNuvem(){
+  if (!nuvemConectada || !cfg.nuvemChave) return;
+  clearTimeout(nuvemTimer);
+  nuvemTimer = setTimeout(enviarNuvem, 1500);
+}
+async function enviarNuvem(){
+  try {
+    const r = await fetch('/api/dados', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chave: cfg.nuvemChave, dados: cfg })
+    });
+    if (r.ok){
+      const hora = new Date().toLocaleTimeString('pt-BR');
+      statusNuvem('☁️ Sincronizado às ' + hora + ' — tudo salvo na nuvem.', '#0a8f4e');
+    } else if (r.status === 503){
+      nuvemConectada = false;
+      statusNuvem('⚠️ A nuvem ainda não foi ativada no servidor — veja o passo a passo acima.', '#e65100');
+    } else {
+      statusNuvem('❌ Falha ao salvar na nuvem (' + r.status + ').', '#c62828');
+    }
+  } catch(err){
+    statusNuvem('❌ Sem conexão — suas edições continuam salvas neste navegador.', '#c62828');
+  }
+}
+
 /* ---------- abas ---------- */
 function trocarAba(qual){
   document.getElementById('aba-prec').classList.toggle('oculto', qual!=='prec');
@@ -706,11 +848,15 @@ function trocarAba(qual){
 /* ---------- inicialização ---------- */
 carregar();
 if (!cfg.ads) cfg.ads = {normal:50, promo:50, banner:50, flash:50};
+if (!cfg.adsRs) cfg.adsRs = {normal:0, promo:0, banner:0, flash:0};
 renderTabela();
-document.getElementById('sim-ads').value = 50;
+document.getElementById('sim-ads').value = (cfg.adsModo === 'rs') ? ((cfg.adsRs && cfg.adsRs.normal) || 0) : 50;
 document.getElementById('sim-alvo').value = 20;
+atualizarLabelSimAds();
+document.getElementById('nuvem-chave').value = cfg.nuvemChave || '';
 const ok = autoTeste();
 document.getElementById('badge-teste').textContent = `✓ ${ok}/${EXEMPLOS.length} exemplos conferem com a planilha original`;
+if (cfg.nuvemChave) conectarNuvem(true);
 </script>
 </body>
 </html>
