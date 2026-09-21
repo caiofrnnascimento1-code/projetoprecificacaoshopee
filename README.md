@@ -9,7 +9,7 @@ Ferramenta de precificação para vendedores da Shopee, baseada na planilha "Pre
 - 📋 **Precificação** com 4 cenários: Preço de Venda, Promoções, Ofertas de Banner e Ofertas Relâmpago
 - 💰 Cálculo de Taxa Shopee (por faixa de preço), Imposto, NF de Entrada, Taxa de Antecipação
 - 📈 Lucro em R$ e %, ROAS Mínimo e Teto de Investimento em ADS (% do lucro ou R$ fixo por venda)
-- ☁️ **Sincronização entre aparelhos**: crie uma chave de acesso e seus dados ficam salvos na nuvem (Upstash Redis via Vercel)
+- ☁️ **Sincronização entre aparelhos**: crie uma chave de acesso e seus dados ficam salvos na nuvem (Postgres via Vercel)
 - 🎯 **Calculadora de Preço Ideal**: informe custos e lucro desejado, e descubra o preço mínimo de venda
 - ⚙️ Configurações: modalidade CPF/CNPJ, campanha, tabela de taxas editável
 - 💾 Salvamento automático no navegador (localStorage) e exportação CSV
